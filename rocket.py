@@ -1,4 +1,5 @@
 import math, planets, csv
+import matplotlib.pyplot as plt
 
 class Rocket(object):
 	""" Describes a 1-stage rocket vehicle and start conditions. Use METRIC units [kg, m, s, Pa, N, K]. """
@@ -96,12 +97,13 @@ class Rocket(object):
 
 # Loads the US Standard Atmosphere Table
 with open('US_standard_atmosphere.csv') as csvfile:
-	std_atm = [map(float, row) for row in csv.reader(csvfile, delimiter='\t')]    # Each row contains height above surface, temperature, pressure, density of air
-atm_height = [row[0] for row in std_atm]
-atm_temperature = [row[1] for row in std_atm]
-atm_pressure = [row[2] for row in std_atm]
-atm_air_density = [row[3] for row in std_atm]
+	std_atm = [row for row in csv.reader(csvfile, delimiter='\t')]    # Each row contains height above surface, temperature, pressure, density of air
+atm_height = [float(row[0]) for row in std_atm]
+atm_temperature = [float(row[1]) for row in std_atm]
+atm_pressure = [float(row[2]) for row in std_atm]
+atm_air_density = [float(row[3]) for row in std_atm]
 
+# Planet reference information
 Earth = planets.Earth()
 
 # Reference dictionaries
