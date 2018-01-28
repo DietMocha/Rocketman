@@ -1,5 +1,4 @@
 import math, planets, csv
-import matplotlib.pyplot as plt
 
 class Rocket(object):
 	""" Describes a 1-stage rocket vehicle and start conditions. Use METRIC units [kg, m, s, Pa, N, K]. """
@@ -60,7 +59,7 @@ class Rocket(object):
 
 		# Deign
 		self.drag_coefficent = drag_coefficent
-		self.frontal_area_sphere = math.pi * (self.oxidizer_tank_radius_sphere) ** 2 if self.oxidizer_tank_radius_sphere > self.fuel_tank_radius_sphere else math.pi * (fuel_tank_radius_sphere) ** 2
+		self.frontal_area_sphere = (math.pi * (self.oxidizer_tank_radius_sphere) ** 2) if self.oxidizer_tank_radius_sphere > self.fuel_tank_radius_sphere else (math.pi * (fuel_tank_radius_sphere) ** 2)
 
 		# Limitations
 		self.g_limiter = g_limiter    # Limits the amount of g forces can experience
@@ -75,7 +74,8 @@ class Rocket(object):
 		self.mass = self.dry_mass + self.propellant_mass
 
 	def calc_acceleration_radial(self):
-		self.acceleration_radial = ((self.thrust - (0.5 * self.drag_coefficent * atm_air_density[atm_height.index(round(self.altitude, -2))] * (self.velocity_radial)**2 * self.frontal_area_sphere)) / self.mass) - self.g
+		self.drag = 0.5 * self.drag_coefficent * atm_air_density[atm_height.index(round(self.altitude, -2))] * (self.velocity_radial)**2 * self.frontal_area_sphere
+		self.acceleration_radial = ((self.thrust - self.drag) / self.mass) - self.g
 
 	def calc_velocity_radial(self):
 		self.velocity_radial += self.acceleration_radial * self.time_step
@@ -86,16 +86,17 @@ class Rocket(object):
 	def calc_time(self):
 		self.flight_time += self.time_step
 
-	def calc(self):
-		self.flight_log.append([self.flight_time, self.altitude, self.velocity_radial, self.acceleration_radial, self.thrust ,self.drag])
-		self.calc_mass()
-		self.calc_acceleration_radial()
-		self.calc_velocity_radial()
-		self.calc_altitude()
-		self.calc_time()
-
+	def calc(self, time):
+		for time_increment in range(int(time / self.time_step)):
+			self.flight_log.append([self.flight_time, self.altitude, self.velocity_radial, self.acceleration_radial, self.thrust, self.drag, self.mass])
+			self.calc_mass()
+			self.calc_acceleration_radial()
+			self.calc_velocity_radial()
+			self.calc_altitude()
+			self.calc_time()
 
 # Loads the US Standard Atmosphere Table
+# Needs improvements, only goes up to 80,000 meters and need to increase table's resolution
 with open('US_standard_atmosphere.csv') as csvfile:
 	std_atm = [row for row in csv.reader(csvfile, delimiter='\t')]    # Each row contains height above surface, temperature, pressure, density of air
 atm_height = [float(row[0]) for row in std_atm]
