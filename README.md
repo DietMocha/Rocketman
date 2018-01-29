@@ -1,8 +1,8 @@
 # Rocket
 ### Models a rocket's trajectory after lift-off
 ##### Future Goals
-- Residual fuel effects [complete with estimates]
-- Aerodynamic effects of different cowling shapes
+[x] Residual fuel effects [complete with estimates]
+[ ] Aerodynamic effects of different cowling shapes
 - Maximium aerodynamic pressure calculation
 - Multiple stages
 - Convert to polar coordinates
