@@ -14,3 +14,4 @@
 - [ ] Account for Earth's gravitational perturbations
 - [ ] Use multiple stages
 - [ ] Stage optimizer
+- [ ] Include Jacchia - Lineberry Upper Atmosphere Density Model
