@@ -1,8 +1,8 @@
 # Rocket
 ### Models a rocket's trajectory after lift-off
 ##### Future Goals
-
-- [x] NASA atmospheric model
+- [x] Prototype model in Excel
+- [x] Update from the US Standard Atmosphere to a NASA atmospheric model
 - [x] Residual fuel effects [complete with estimates]
 - [ ] Aerodynamic effects of different cowling shapes
 - [ ] Maximium aerodynamic pressure calculation
