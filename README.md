@@ -2,6 +2,7 @@
 ### Models a rocket's trajectory after lift-off
 ##### Future Goals
 
+- [x] NASA atmospheric model
 - [x] Residual fuel effects [complete with estimates]
 - [ ] Aerodynamic effects of different cowling shapes
 - [ ] Maximium aerodynamic pressure calculation
