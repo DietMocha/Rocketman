@@ -10,17 +10,16 @@ class Rocket(object):
 		self.step = time_step    # Time increment per iteratin | lower values increases the result's resolution | beware of roundoff error
 		self.log = []    # Stores flight information
 		self.time = 0    # Rocket lifts-off at time = 0 seconds
-		self.air = Air()
+		self.air = Air()    # Atmospheric information
 		self.position = Position(altitude)
 		self.velocity = Velocity(velocity_radial, velocity_tangential)
 		self.acceleration = Acceleration()
 		self.vehicle = Vehicle(mass, propellant_mass_fraction, mixture_ratio, burn_time, tank_material, fuel, oxidizer, tank_safety_factor, tank_pressure, drag_coefficent, g_limit)
 		self.engine = Engine(number_of_thrusters, feed_system, exhaust_velocity)
-		self.oxidizer = oxidizer
-		self.fuel = fuel
 
-	def calc(self, calc_time):    # NASA atmospheric model: https://www.grc.nasa.gov/www/k-12/rocket/atmosmet.html
-		for time_step in range(int(calc_time / self.step)):
+	def calc(self, calc_time):
+		for time_increment in range(int(calc_time / self.step)):
+			# NASA atmospheric model | https://www.grc.nasa.gov/www/k-12/rocket/atmosmet.html
 			if self.position.altitude < 11000:
 				self.air.temperature = 15.04 - .00649 * self.positon.altitude    # Celsius
 				self.air.pressure = 101.29 * ((self.air.temperature + 273.1) / 288.08) ** 5.256    # kPa
@@ -31,21 +30,31 @@ class Rocket(object):
 				self.air.temperature = -131.21 + .00299 * self.position.altitude    # Celsius
 				self.air.pressure = 2.488 * ((self.air.temperature + 273.1) / 216.6) ** -11.388    # kPa
 			self.air.density = self.air.pressure / (0.2869 * (self.air.temperature + 273.1))    # kg/m3
+
+			# Calculate Earth's gravitional constant base on altitude
 			self.g = 9.805 * (Earth.radius / (self.position.altitude + Earth.radius)) ** 2
-			if self.vehicle.mass.propellant > self.vehicle.mass.residual_fuel:   # Prevents mass reduction after rocket uses all available fuel
+
+			# Calculate mass change based on fuel & oxidizer consumption rate
+			if self.vehicle.mass.propellant > self.vehicle.mass.residual_fuel:    # Prevents mass reduction after rocket uses all available fuel
 				self.vehicle.mass.oxidizer -= self.vehicle.oxidizer_flow_rate * self.step
 				self.vehicle.mass.fuel -= self.vehicle.fuel_flow_rate * self.step
 				self.vehicle.mass.propellant = self.vehicle.mass.oxidizer + self.vehicle.mass.fuel
 				self.vehicle.mass.total = self.vehicle.mass.dry + self.vehicle.mass.propellant
-			self.thrust = ((self.vehicle.oxidizer_flow_rate + self.vehicle.fuel_flow_rate) * self.engine.exhaust_velocity)  if self.vehicle.mass.propellant > self.vehicle.mass.residual_fuel else 0
-			self.g = 9.805 * (Earth.radius / (self.position.altitude + Earth.radius)) ** 2    # Earth's gravitational constant, which depends on altitude
-			drag_velocity = ( (self.velocity.tangential - Earth.velocity_angular * Earth.radius) ** 2 + self.velocity.radial ** 2) ** 0.5    # Velocity that contributes to drag
-			self.drag = (0.5 * self.vehicle.drag_coefficent * self.air.density * drag_velocity**2 * frontal_area_sphere(self)) if self.position.altitude <= 80000 else 0
-			self.drag = self.drag if self.velocity.total > 0 else -self.drag
+
+			# Calculate rocket's thrust based on fuel & oxidizer consumption rate and gas exhaust velocity
+			self.thrust = (self.vehicle.oxidizer_flow_rate + self.vehicle.fuel_flow_rate) * self.engine.exhaust_velocity  if self.vehicle.mass.propellant > self.vehicle.mass.residual_fuel else 0
+
+			# Calculate rocket's drag based on vehicle's velocity relative to the surrounding air, velocity, drag coefficent, air denisty, and rocket's frontal area
+			drag_velocity = ((self.velocity.tangential - Earth.velocity_angular * Earth.radius) ** 2 + self.velocity.radial ** 2) ** 0.5    # Velocity that contributes to drag | Vehicle's velocity relative to the surrounding air
+			self.drag = (0.5 * self.vehicle.drag_coefficent * self.air.density * drag_velocity**2 * self.vehicle.frontal_area_sphere) if self.position.altitude <= 80000 else 0
+
+			# Calculate rocket's acceleration based on froces and then split the result into radial and tangential components (center of Earth is the reference point | the plane is Earth's equator)
 			rocket_acceleration = (self.thrust - self.drag) / self.vehicle.mass.total
 			self.acceleration.radial = rocket_acceleration * math.cos(self.position.angle) - self.g + (self.velocity.tangential ** 2 / (self.position.altitude + Earth.radius))    # Radial acceleration from thrust - Earth's gravitational acceleration + centripetal acceleration
 			self.acceleration.tangential = rocket_acceleration * math.cos(self.position.angle)
 			self.acceleration.total = (self.acceleration.tangential ** 2 + self.acceleration.radial ** 2) ** 0.5
+
+			# Calculates rocket's velocity base on acceleration in radial and tangential coordinates
 			self.velocity.radial += self.acceleration.radial * self.step
 			self.velocity.tangential += self.acceleration.tangential * self.step
 			self.velocity.total = (self.velocity.radial ** 2 + self.velocity.tangential ** 2) ** 0.5
@@ -54,27 +63,18 @@ class Rocket(object):
 			self.time += self.step
 			self.log.append([self.time, self.position.altitude, self.velocity.radial, self.acceleration.radial, self.thrust, self.drag, self.vehicle.mass.total])
 
-
-def oxidizer_sphere_radius(self):
-	return(((3 * .3) / (4 * math.pi) ) ** (1.0 / 3.0))
-
-def fuel_sphere_radius(self):
-	return(((3 * .1) / (4 * math.pi)) ** (1.0 / 3.0))
-
-def frontal_area_sphere(self):
-	return((math.pi * (oxidizer_sphere_radius(self)) ** 2) if oxidizer_sphere_radius(self) > fuel_sphere_radius(self) else (math.pi * (fuel_sphere_radius(self) ** 2)))
-
 class Vehicle(object):
 	def __init__(self, mass, propellant_mass_fraction, mixture_ratio, burn_time, tank_material, fuel, oxidizer, tank_safety_factor, tank_pressure, drag_coefficent, g_limit):
 		self.mass = Mass(mass, propellant_mass_fraction, mixture_ratio)
-		self.oxidizer = oxidizer
-		self.fuel = fuel
-		self.oxidizer_volume = self.mass.oxidizer / oxidizer_density[self.oxidizer]
-		self.fuel_volume = self.mass.fuel / fuel_density[self.fuel]
-		self.oxidizer_wall_thickness = tank_safety_factor * (tank_pressure * oxidizer_sphere_radius(self)) / (2 * material[tank_material][0])
-		self.fuel_wall_thickness = tank_safety_factor * (tank_pressure * fuel_sphere_radius(self)) / (2 * material[tank_material][0])
-		self.oxidizer_mass = (4 * math.pi / 3) * (oxidizer_sphere_radius(self) ** 3 - (oxidizer_sphere_radius(self) - self.oxidizer_wall_thickness) ** 3) * material[tank_material][1]
-		self.fuel_mass = (4 * math.pi / 3) * (fuel_sphere_radius(self) ** 3 - (fuel_sphere_radius(self) - self.fuel_wall_thickness) ** 3) * material[tank_material][1]
+		self.oxidizer_volume = self.mass.oxidizer / oxidizer_density[oxidizer]
+		self.fuel_volume = self.mass.fuel / fuel_density[fuel]
+		self.oxidizer_sphere_radius = ((3 * self.oxidizer_volume) / (4 * math.pi) ) ** (1.0 / 3.0)
+		self.fuel_sphere_radius = ((3 * self.fuel_volume) / (4 * math.pi)) ** (1.0 / 3.0)
+		self.frontal_area_sphere = (math.pi * (self.oxidizer_sphere_radius ** 2) if self.oxidizer_sphere_radius > self.fuel_sphere_radius else (math.pi * (self.fuel_sphere_radius ** 2)))
+		self.oxidizer_wall_thickness = tank_safety_factor * (tank_pressure * self.oxidizer_sphere_radius / (2 * material[tank_material][0]))
+		self.fuel_wall_thickness = tank_safety_factor * (tank_pressure * self.fuel_sphere_radius / (2 * material[tank_material][0]))
+		self.oxidizer_mass = (4 * math.pi / 3) * (self.oxidizer_sphere_radius ** 3 - (self.oxidizer_sphere_radius - self.oxidizer_wall_thickness) ** 3) * material[tank_material][1]
+		self.fuel_mass = (4 * math.pi / 3) * (self.fuel_sphere_radius ** 3 - (self.fuel_sphere_radius - self.fuel_wall_thickness) ** 3) * material[tank_material][1]
 		self.oxidizer_flow_rate = self.mass.oxidizer / burn_time    # kg/s
 		self.fuel_flow_rate = self.mass.fuel / burn_time    # kg/s
 		self.drag_coefficent = drag_coefficent
@@ -82,9 +82,10 @@ class Vehicle(object):
 
 class Mass(Vehicle):
 	def __init__(self, mass, propellant_mass_fraction, mixture_ratio):
+		# Mass calulation needs to incorporate tank mass based on tank pressure
 		self.total = mass    # Rocket's mass at launch
 		self.propellant_fraction = propellant_mass_fraction    # 1 - dry weight at launch / fueled weight at launch
-		self.dry = -(self.propellant_fraction - 1) * self.total
+		self.dry = (1 - self.propellant_fraction) * self.total
 		self.propellant = self.total - self.dry
 		self.oxidizer = (mixture_ratio * self.propellant) / (mixture_ratio + 1)
 		self.fuel = self.propellant / (mixture_ratio + 1)
