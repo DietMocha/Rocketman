@@ -1,5 +1,9 @@
 import math, planets, csv
 
+# Notes:
+# - Improve model's direction of flight angle vs rocket's angle of attack. At this moment, they are the same. In reality, this is not the case
+# - Incorporate tangential position and improve position graph
+
 class Rocket(object):
 	""" Describes a 1-stage rocket vehicle and start conditions. Use METRIC units. """
 
@@ -11,7 +15,7 @@ class Rocket(object):
 		self.log = []    # Stores flight information
 		self.time = 0    # Rocket lifts-off at time = 0 seconds
 		self.air = Air()    # Atmospheric information
-		self.position = Position(altitude)
+		self.position = Position(altitude, angle)
 		self.velocity = Velocity(velocity_radial, velocity_tangential)
 		self.acceleration = Acceleration()
 		self.vehicle = Vehicle(mass, propellant_mass_fraction, mixture_ratio, burn_time, tank_material, fuel, oxidizer, tank_safety_factor, tank_pressure, drag_coefficent, g_limit)
@@ -63,7 +67,7 @@ class Rocket(object):
 			self.position.altitude += self.velocity.radial * self.step
 			self.position.horizontal += self.velocity.tangential * self.step
 			self.time += self.step
-			self.log.append([self.time, self.position.altitude, self.velocity.radial, self.acceleration.radial, self.thrust, self.drag, self.vehicle.mass.total, self.acceleration.tangential, self.velocity.tangential])
+			self.log.append([self.time, self.position.altitude, self.velocity.radial, self.acceleration.radial, self.thrust, self.drag, self.vehicle.mass.total, self.acceleration.tangential, self.velocity.tangential, self.velocity.total])
 
 class Vehicle(object):
 	def __init__(self, mass, propellant_mass_fraction, mixture_ratio, burn_time, tank_material, fuel, oxidizer, tank_safety_factor, tank_pressure, drag_coefficent, g_limit):
@@ -94,10 +98,10 @@ class Mass(Vehicle):
 		self.residual_fuel = mass*propellant_mass_fraction * 0.02   # Needs development, assuming 2% residual (unused fuel)
 
 class Position(object):
-	def __init__(self, altitude):
+	def __init__(self, altitude, angle):
 		self.altitude = altitude    # Initial height above the surface, meters
 		self.horizontal = 0    # Arc distance travelled down range
-		self.angle = 0    # Zero radians means the rocket is pointing away from the center of the Earth and aligned with the radial axis | pi/2 radians is when the rocket is aligned with the tangential axis
+		self.angle = angle * (math.pi / 180)    # Takes angle in degrees and converts it to radians | Zero degrees means the rocket is pointing away from the center of the Earth and aligned with the radial axis | pi/2 radians is when the rocket is aligned with the tangential axis
 
 class Velocity(object):
 	def __init__(self, velocity_radial, velocity_tangential):
