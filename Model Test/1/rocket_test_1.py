@@ -20,17 +20,15 @@ class Rocket(object):
 	def calc(self, calc_time):
 		for time_increment in range(int(calc_time / self.step)):
 			# NASA atmospheric model | https://www.grc.nasa.gov/www/k-12/rocket/atmosmet.html
-			if self.position.altitude >=0 and self.position.altitude < 11000:
+			if self.position.altitude < 11000:
 				self.air.temperature = 15.04 - .00649 * self.positon.altitude    # Celsius
 				self.air.pressure = 101.29 * ((self.air.temperature + 273.1) / 288.08) ** 5.256    # kPa
 			elif self.position.altitude >= 11000 and self.position.altitude <25000:
 				self.air.temperature = -56.46    # Celsius
 				self.air.pressure =  22.65 * math.exp(1.73 - 0.000157 * self.position.altitude)    # kPa
-			elif self.position.altitude >= 25000:
+			else:
 				self.air.temperature = -131.21 + .00299 * self.position.altitude    # Celsius
 				self.air.pressure = 2.488 * ((self.air.temperature + 273.1) / 216.6) ** -11.388    # kPa
-			else:
-				self.position.altitude = -0.1
 			self.air.density = self.air.pressure / (0.2869 * (self.air.temperature + 273.1))    # kg/m3
 
 			# Calculate Earth's gravitional constant base on altitude
@@ -51,8 +49,8 @@ class Rocket(object):
 			self.drag = (0.5 * self.vehicle.drag_coefficent * self.air.density * drag_velocity**2 * self.vehicle.frontal_area_sphere) if self.position.altitude <= 80000 else 0
 
 			# Calculate rocket's acceleration based on froces and then split the result into radial and tangential components (center of Earth is the reference point | the plane is Earth's equator)
-			rocket_acceleration = (self.thrust - self.drag) / self.vehicle.mass.total
-			self.acceleration.radial = rocket_acceleration * math.cos(self.position.angle) - self.g + (self.velocity.tangential ** 2 / (self.position.altitude + Earth.radius))    # Radial acceleration from thrust - Earth's gravitational acceleration + centripetal acceleration
+			rocket_acceleration = (self.thrust - 000) / self.vehicle.mass.total # rocket_acceleration = (self.thrust - self.drag) / self.vehicle.mass.total
+			self.acceleration.radial = rocket_acceleration * math.cos(self.position.angle) - 000 + (self.velocity.tangential ** 2 / (self.position.altitude + Earth.radius)) # self.acceleration.radial = rocket_acceleration * math.cos(self.position.angle) - self.g + (self.velocity.tangential ** 2 / (self.position.altitude + Earth.radius))    # Radial acceleration from thrust - Earth's gravitational acceleration + centripetal acceleration
 			self.acceleration.tangential = rocket_acceleration * math.sin(self.position.angle)
 			self.acceleration.total = (self.acceleration.tangential ** 2 + self.acceleration.radial ** 2) ** 0.5
 
