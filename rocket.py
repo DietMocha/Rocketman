@@ -1,76 +1,40 @@
 import math, planets, csv
 
-# Notes:
-# - Improve model's direction of flight angle vs rocket's angle of attack. At this moment, they are the same. In reality, this is not the case
-# - Incorporate tangential position and improve position graph
-
 class Rocket(object):
 	""" Describes a 1-stage rocket vehicle and start conditions. Use METRIC units. """
-
-	def __init__(self, mass, burn_time, flight_time=120, time_step=0.0625, propellant_mass_fraction=0.87, altitude=0, velocity_radial=0,
-				 velocity_tangential=0, fuel='RP-1', oxidizer='H2O2_98%', mixture_ratio=5, g_limit=None, number_of_thrusters=1, 
-				 feed_system='pressure-fed', tank_pressure=0, tank_material='Al_6061_T6', tank_safety_factor=2, drag_coefficent=0.30,
+	def __init__(self, mass, burn_time, flight_time=120, time_step=0.0625, propellant_mass_fraction=0.87, 
+		         altitude=0, velocity_radial=0, velocity_tangential=0, fuel='RP-1', oxidizer='H2O2_98%', 
+		         mixture_ratio=5, g_limit=None, number_of_thrusters=1, feed_system='pressure-fed', 
+		         tank_pressure=0, tank_material='Al_6061_T6', tank_safety_factor=2, drag_coefficent=0.30,
 				 angle=0, turn_rate=5, exhaust_velocity=3250):
 		self.step = time_step    # Time increment per iteratin | lower values increases the result's resolution | beware of roundoff error
 		self.log = []    # Stores flight information
 		self.time = 0    # Rocket lifts-off at time = 0 seconds
-		self.air = Air()    # Atmospheric information
+		self.vehicle = Vehicle(mass, propellant_mass_fraction, mixture_ratio, burn_time, 
+							   tank_material, fuel, oxidizer, tank_safety_factor, tank_pressure, 
+							   drag_coefficent, g_limit)
 		self.position = Position(altitude, angle)
 		self.velocity = Velocity(velocity_radial, velocity_tangential)
 		self.acceleration = Acceleration()
-		self.vehicle = Vehicle(mass, propellant_mass_fraction, mixture_ratio, burn_time, tank_material, fuel, oxidizer, tank_safety_factor, tank_pressure, drag_coefficent, g_limit)
 		self.engine = Engine(number_of_thrusters, feed_system, exhaust_velocity)
+		self.air = Air()    # Atmospheric information
 
 	def calc(self, calc_time):
-		for time_increment in range(int(calc_time / self.step)):
-			# NASA atmospheric model | https://www.grc.nasa.gov/www/k-12/rocket/atmosmet.html
-			if self.position.altitude >=0 and self.position.altitude < 11000:
-				self.air.temperature = 15.04 - .00649 * self.positon.altitude    # Celsius
-				self.air.pressure = 101.29 * ((self.air.temperature + 273.1) / 288.08) ** 5.256    # kPa
-			elif self.position.altitude >= 11000 and self.position.altitude <25000:
-				self.air.temperature = -56.46    # Celsius
-				self.air.pressure =  22.65 * math.exp(1.73 - 0.000157 * self.position.altitude)    # kPa
-			elif self.position.altitude >= 25000:
-				self.air.temperature = -131.21 + .00299 * self.position.altitude    # Celsius
-				self.air.pressure = 2.488 * ((self.air.temperature + 273.1) / 216.6) ** -11.388    # kPa
-			else:
-				self.position.altitude = -0.1
-			self.air.density = self.air.pressure / (0.2869 * (self.air.temperature + 273.1))    # kg/m3
-
-			# Calculate Earth's gravitional constant base on altitude
-			self.g = 9.805 * (Earth.radius / (self.position.altitude + Earth.radius)) ** 2
-
-			# Calculate mass change based on fuel & oxidizer consumption rate
-			if self.vehicle.mass.propellant > self.vehicle.mass.residual_fuel:    # Prevents mass reduction after rocket uses all available fuel
-				self.vehicle.mass.oxidizer -= self.vehicle.oxidizer_flow_rate * self.step
-				self.vehicle.mass.fuel -= self.vehicle.fuel_flow_rate * self.step
-				self.vehicle.mass.propellant = self.vehicle.mass.oxidizer + self.vehicle.mass.fuel
-				self.vehicle.mass.total = self.vehicle.mass.dry + self.vehicle.mass.propellant
-
-			# Calculate rocket's thrust based on fuel & oxidizer consumption rate and gas exhaust velocity
-			self.thrust = (self.vehicle.oxidizer_flow_rate + self.vehicle.fuel_flow_rate) * self.engine.exhaust_velocity  if self.vehicle.mass.propellant > self.vehicle.mass.residual_fuel else 0
-
-			# Calculate rocket's drag based on vehicle's velocity relative to the surrounding air, velocity, drag coefficent, air denisty, and rocket's frontal area
-			drag_velocity = ((self.velocity.tangential - Earth.velocity_angular * Earth.radius) ** 2 + self.velocity.radial ** 2) ** 0.5    # Velocity that contributes to drag | Vehicle's velocity relative to the surrounding air
-			self.drag = (0.5 * self.vehicle.drag_coefficent * self.air.density * drag_velocity**2 * self.vehicle.frontal_area_sphere) if self.position.altitude <= 80000 else 0
-
-			# Calculate rocket's acceleration based on froces and then split the result into radial and tangential components (center of Earth is the reference point | the plane is Earth's equator)
-			rocket_acceleration = (self.thrust - self.drag) / self.vehicle.mass.total
-			self.acceleration.radial = rocket_acceleration * math.cos(self.position.angle) - self.g + (self.velocity.tangential ** 2 / (self.position.altitude + Earth.radius))    # Radial acceleration from thrust - Earth's gravitational acceleration + centripetal acceleration
-			self.acceleration.tangential = rocket_acceleration * math.sin(self.position.angle)
-			self.acceleration.total = (self.acceleration.tangential ** 2 + self.acceleration.radial ** 2) ** 0.5
-
-			# Calculates rocket's velocity base on acceleration in radial and tangential coordinates
-			self.velocity.radial += self.acceleration.radial * self.step
-			self.velocity.tangential += self.acceleration.tangential * self.step
-			self.velocity.total = (self.velocity.radial ** 2 + self.velocity.tangential ** 2) ** 0.5
-			self.position.altitude += self.velocity.radial * self.step
-			self.position.horizontal += self.velocity.tangential * self.step
+		for _ in range(int(calc_time / self.step)):
+			update_air(self)
+			update_mass(self)
+			calc_forces(self)
+			calc_acceleration(self)
+			calc_velocity(self)
+			calc_position(self)
 			self.time += self.step
-			self.log.append([self.time, self.position.altitude, self.velocity.radial, self.acceleration.radial, self.thrust, self.drag, self.vehicle.mass.total, self.acceleration.tangential, self.velocity.tangential, self.velocity.total])
+			self.log.append([self.time, self.position.altitude, self.velocity.radial, self.acceleration.radial, self.thrust, self.drag, 
+				             self.vehicle.mass.total, self.acceleration.tangential, self.velocity.tangential, self.velocity.total,
+				             self.acceleration.total, self.position.horizontal, self.position.theta])
 
 class Vehicle(object):
-	def __init__(self, mass, propellant_mass_fraction, mixture_ratio, burn_time, tank_material, fuel, oxidizer, tank_safety_factor, tank_pressure, drag_coefficent, g_limit):
+	def __init__(self, mass, propellant_mass_fraction, mixture_ratio, burn_time, tank_material, fuel, oxidizer, tank_safety_factor, 
+		         tank_pressure, drag_coefficent, g_limit):
 		self.mass = Mass(mass, propellant_mass_fraction, mixture_ratio)
 		self.oxidizer_volume = self.mass.oxidizer / oxidizer_density[oxidizer]
 		self.fuel_volume = self.mass.fuel / fuel_density[fuel]
@@ -101,6 +65,7 @@ class Position(object):
 	def __init__(self, altitude, angle):
 		self.altitude = altitude    # Initial height above the surface, meters
 		self.horizontal = 0    # Arc distance travelled down range
+		self.theta = 0    # Arc angle created between the current position, the center of the Earth, and the starting position
 		self.angle = angle * (math.pi / 180)    # Takes angle in degrees and converts it to radians | Zero degrees means the rocket is pointing away from the center of the Earth and aligned with the radial axis | pi/2 radians is when the rocket is aligned with the tangential axis
 
 class Velocity(object):
@@ -127,10 +92,61 @@ class Engine(object):
 		self.feed_system = feed_system
 		self.exhaust_velocity = exhaust_velocity    # Needs to be developed
 
-# Planet reference information
-Earth = planets.Earth()
+def update_air(self):
+	# NASA atmospheric model | https://www.grc.nasa.gov/www/k-12/rocket/atmosmet.html
+	if self.position.altitude >=0 and self.position.altitude < 11000:
+		self.air.temperature = 15.04 - .00649 * self.positon.altitude    # Celsius
+		self.air.pressure = 101.29 * ((self.air.temperature + 273.1) / 288.08) ** 5.256    # kPa
+	elif self.position.altitude >= 11000 and self.position.altitude <25000:
+		self.air.temperature = -56.46    # Celsius
+		self.air.pressure =  22.65 * math.exp(1.73 - 0.000157 * self.position.altitude)    # kPa
+	elif self.position.altitude >= 25000:
+		self.air.temperature = -131.21 + .00299 * self.position.altitude    # Celsius
+		self.air.pressure = 2.488 * ((self.air.temperature + 273.1) / 216.6) ** -11.388    # kPa
+	else:
+		self.position.altitude = -0.1
+	self.air.density = self.air.pressure / (0.2869 * (self.air.temperature + 273.1))    # kg/m3
+
+def update_mass(self):
+	# Calculate mass change based on fuel & oxidizer consumption rate
+	if self.vehicle.mass.propellant > self.vehicle.mass.residual_fuel:    # Prevents mass reduction after rocket uses all available fuel
+		self.vehicle.mass.oxidizer -= self.vehicle.oxidizer_flow_rate * self.step
+		self.vehicle.mass.fuel -= self.vehicle.fuel_flow_rate * self.step
+		self.vehicle.mass.propellant = self.vehicle.mass.oxidizer + self.vehicle.mass.fuel
+		self.vehicle.mass.total = self.vehicle.mass.dry + self.vehicle.mass.propellant
+
+def calc_forces(self):
+	self.g = 9.805 * (Earth.radius / (self.position.altitude + Earth.radius)) ** 2    # Calculate Earth's gravitional constant base on altitude		
+	self.thrust = (self.vehicle.oxidizer_flow_rate + self.vehicle.fuel_flow_rate) * self.engine.exhaust_velocity  if self.vehicle.mass.propellant > self.vehicle.mass.residual_fuel else 0    # Calculate rocket's thrust based on fuel & oxidizer consumption rate and gas exhaust velocity
+	# Calculate rocket's drag based on vehicle's velocity relative to the surrounding air, velocity, drag coefficent, air denisty, and rocket's frontal area
+	drag_velocity = ((self.velocity.tangential - Earth.velocity_angular * Earth.radius) ** 2 + self.velocity.radial ** 2) ** 0.5    # Velocity that contributes to drag | Vehicle's velocity relative to the surrounding air
+	self.drag = (0.5 * self.vehicle.drag_coefficent * self.air.density * drag_velocity**2 * self.vehicle.frontal_area_sphere) if self.position.altitude <= 80000 else 0
+
+def calc_acceleration(self):
+	# Calculate rocket's acceleration based on froces and then split the result into radial and tangential components (center of Earth is the reference point | the plane is Earth's equator)
+	rocket_acceleration = (self.thrust - self.drag) / self.vehicle.mass.total
+	self.acceleration.radial = rocket_acceleration * math.cos(self.position.angle) - self.g + (self.velocity.tangential ** 2 / (self.position.altitude + Earth.radius))    # Radial acceleration from thrust - Earth's gravitational acceleration + centripetal acceleration
+	self.acceleration.tangential = rocket_acceleration * math.sin(self.position.angle)
+	self.acceleration.total = (self.acceleration.tangential ** 2 + self.acceleration.radial ** 2) ** 0.5
+
+def calc_velocity(self):
+	# Calculates rocket's velocity base on acceleration in radial and tangential coordinates
+	self.velocity.radial += self.acceleration.radial * self.step
+	self.velocity.tangential += self.acceleration.tangential * self.step
+	self.velocity.total = (self.velocity.radial ** 2 + self.velocity.tangential ** 2) ** 0.5
+
+def calc_position(self):
+	self.position.altitude += self.velocity.radial * self.step    # Height above surface
+	self.position.horizontal += self.velocity.tangential * self.step
+	# NOT CORRECT, NEEDS WORK self.position.theta += math.atan(self.velocity.tangential * self.step) / (self.position.altitude + Earth.radius)    # Radians
+
+Earth = planets.Earth()    # Planet reference information
 
 # Reference dictionaries
 oxidizer_density = {'H2O2_98%': 1430}    # kg/m3
 fuel_density = {'RP-1': 810}    # kg/m3
 material = {'Al_6061_T6': [240e6, 2700]}   # { name: [yield strength (Pa), density (kg/m3)] }
+
+# NOTES
+# Time step of 0.0625 seconds yielded the best results when the model was compared to the rocket equation
+# Improve model's direction of flight angle vs rocket's angle of attack. At this moment, they are the same. In reality, this is not the case

@@ -2,8 +2,10 @@
 ### Models a rocket's trajectory after lift-off
 ##### Future Goals
 - [x] Prototype model in Excel
-- [x] Update from the US Standard Atmosphere to a NASA atmospheric model
+- [x] Update from the US Standard Atmosphere Table to a NASA atmospheric model
 - [x] Residual fuel effects [complete with estimates]
+- [ ] Create down range distance calculator
+- [ ] Create mass estimate based on tank pressure
 - [ ] Aerodynamic effects of different cowling shapes
 - [ ] Maximium aerodynamic pressure calculation
 - [ ] Multiple stages
