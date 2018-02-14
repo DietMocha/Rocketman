@@ -2,14 +2,14 @@ import math, planets, csv
 
 class Rocket(object):
 	""" Describes a 1-stage rocket vehicle and start conditions. Use METRIC units. """
-	def __init__(self, mass, burn_time, flight_time=120, time_step=0.0625, propellant_mass_fraction=0.87, 
+	def __init__(self, mass, burn_time, start_time=0, flight_time=120, time_step=0.0625, propellant_mass_fraction=0.87, 
 		         altitude=0, velocity_radial=0, velocity_tangential=0, fuel='RP-1', oxidizer='H2O2_98%', 
 		         mixture_ratio=5, g_limit=None, number_of_thrusters=1, feed_system='pressure-fed', 
 		         tank_pressure=0, tank_material='Al_6061_T6', tank_safety_factor=2, drag_coefficent=0.30,
 				 angle=0, turn_rate=5, exhaust_velocity=3250):
 		self.step = time_step    # Time increment per iteratin | lower values increases the result's resolution | beware of roundoff error
 		self.log = []    # Stores flight information
-		self.time = 0    # Rocket lifts-off at time = 0 seconds
+		self.time = start_time    # Rocket start time
 		self.vehicle = Vehicle(mass, propellant_mass_fraction, mixture_ratio, burn_time, 
 							   tank_material, fuel, oxidizer, tank_safety_factor, tank_pressure, 
 							   drag_coefficent, g_limit)
