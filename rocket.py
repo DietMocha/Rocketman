@@ -14,7 +14,7 @@ class Rocket(object):
 							   tank_material, fuel, oxidizer, tank_safety_factor, tank_pressure, 
 							   drag_coefficent, g_limit)
 		self.position = Position(altitude, angle)
-		self.velocity = Velocity(velocity_radial, velocity_tangential)
+		self.velocity = Velocity(velocity_radial, velocity_tangential, altitude)
 		self.acceleration = Acceleration()
 		self.engine = Engine(number_of_thrusters, feed_system, exhaust_velocity)
 		self.air = Air()    # Atmospheric information
@@ -69,9 +69,9 @@ class Position(object):
 		self.angle = angle * (math.pi / 180)    # Takes angle in degrees and converts it to radians | Zero degrees means the rocket is pointing away from the center of the Earth and aligned with the radial axis | pi/2 radians is when the rocket is aligned with the tangential axis
 
 class Velocity(object):
-	def __init__(self, velocity_radial, velocity_tangential):
+	def __init__(self, velocity_radial, velocity_tangential, altitude):
 		self.radial = velocity_radial
-		self.tangential = velocity_tangential + Earth.velocity_angular * Earth.radius
+		self.tangential = velocity_tangential + (Earth.velocity_angular * (Earth.radius + altitude))    # Assume a stationary position over ground launch site if rocket is launched from a balloon
 		self.total = (self.radial ** 2 + self.tangential ** 2) ** 0.5
 
 class Acceleration(object):
@@ -137,8 +137,8 @@ def calc_velocity(self):
 
 def calc_position(self):
 	self.position.altitude += self.velocity.radial * self.step    # Height above surface
-	self.position.horizontal += self.velocity.tangential * self.step
-	# NOT CORRECT, NEEDS WORK self.position.theta += math.atan(self.velocity.tangential * self.step) / (self.position.altitude + Earth.radius)    # Radians
+	self.position.horizontal += (self.velocity.tangential - Earth.velocity_angular * (Earth.radius + self.position.altitude)) * self.step    # Horizontal distance from start location
+	self.position.theta += math.atan(self.velocity.tangential * self.step) / (self.position.altitude + Earth.radius)    # Radians
 
 Earth = planets.Earth()    # Planet reference information
 
@@ -148,5 +148,7 @@ fuel_density = {'RP-1': 810}    # kg/m3
 material = {'Al_6061_T6': [240e6, 2700]}   # { name: [yield strength (Pa), density (kg/m3)] }
 
 # NOTES
+# Looking into the burn time. I believe the residual fuel shortens the burn time by a few seconds.
 # Time step of 0.0625 seconds yielded the best results when the model was compared to the rocket equation
 # Improve model's direction of flight angle vs rocket's angle of attack. At this moment, they are the same. In reality, this is not the case
+# Need to improve rocket's mass prediction based on tank pressure

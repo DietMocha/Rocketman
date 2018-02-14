@@ -27,7 +27,7 @@ def burn_angle_optimize():
 
 def single_test(weight):
 	fire = rocket.Rocket(weight, 75, altitude=22000, propellant_mass_fraction=0.80, mixture_ratio=7.4, tank_pressure=7e6, tank_safety_factor=1.2, angle=55)    # Initialize your rocket with design parameters and starting conditions
-	fire.calc(500)    # Method's parameter is the length of simulation in seconds
+	fire.calc(50)    # Method's parameter is the length of simulation in seconds
 
 	time = [row[0] for row in fire.log]
 	altitude = [row[1] / 1000 for row in fire.log]
@@ -42,7 +42,7 @@ def single_test(weight):
 	drag = [row[5] for row in fire.log]
 	mass = [row[6] for row in fire.log]
 	horizontal = [row[11] / 1000 for row in fire.log]    # Units converted from m to km
-	theta = [row[12] * 180 / math.pi for row in fire.log]    # Converted from radians to degrees
+	theta = [row[12] for row in fire.log]
 
 	f, ax = plt.subplots(2, 5)
 
