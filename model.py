@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import math
+import pandas as pd
 import rocket
-import planets
+
 
 position_parms = {
     'altitude': 22000,
@@ -40,6 +40,4 @@ engine = rocket.Engine(**engine_parms)
 vehicle = rocket.Vehicle(**vehicle_parms)
 fire = rocket.Rocket(position, velocity, acceleration, engine, vehicle)
 fire.calc(50)
-
 fire.plotter()
-plt.show()

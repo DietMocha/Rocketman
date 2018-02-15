@@ -1,16 +1,14 @@
 import matplotlib.pyplot as plt
+import pandas as pd
 import math
 import planets
-import csv
 
 
 class Rocket(object):
     ''' Describes a single stage rocket. Use metric units. '''
 
     def __init__(self, position, velocity, acceleration, engine,
-                 vehicle, start=0, flight_time=120, time_step=0.0625):
-        self.step = time_step    # Time increment per iteratin
-        self.log = []    # Stores flight information
+                 vehicle, start=0,):
         self.time = start    # Rocket start time
         self.position = position
         self.velocity = velocity
@@ -18,6 +16,10 @@ class Rocket(object):
         self.vehicle = vehicle
         self.engine = engine
         self.air = Air()    # Atmospheric information
+        # Time step of 0.0625 seconds yielded the best results
+        # when the model was compared to the rocket equation
+        self.step = 0.0625
+        self.log = []    # Stores flight information
 
     def calc(self, calc_time):
         for _ in range(int(calc_time / self.step)):
@@ -27,66 +29,31 @@ class Rocket(object):
             calc_acceleration(self)
             calc_velocity(self)
             calc_position(self)
+            calc_log(self)
             self.time += self.step
-            self.log.append([self.time, self.position.altitude,
-                             self.velocity.radial, self.acceleration.radial,
-                             self.thrust, self.drag, self.vehicle.mass.total,
-                             self.acceleration.tangential, self.velocity.tangential,
-                             self.velocity.total, self.acceleration.total,
-                             self.position.horizontal, self.position.theta])
 
     def plotter(self):
-        time = [row[0] for row in self.log]
-        altitude = [row[1] / 1000 for row in self.log]
-        velocity_radial = [row[2] for row in self.log]
-        velocity_tangential = [row[8] for row in self.log]
-        velocity_total = [row[9] for row in self.log]
-        horizontal = [row[11] / 1000 for row in self.log]    # Units converted from m to km
-        acceleration_total = [row[10] / 9.805 for row in self.log]
-        thrust = [row[4] for row in self.log]
-        drag = [row[5] for row in self.log]
-        theta = [row[12] for row in self.log]
-
-        f, ax = plt.subplots(2, 5)
-
-        ax[0, 0].scatter(time, altitude)
-        ax[0, 0].set_title('Altitude [km]')
-        plt.xlabel('time [s]')
-
-        ax[0, 1].scatter(time, velocity_radial)
-        ax[0, 1].set_title('Radial Velocity [m/s]')
-        plt.xlabel('time [s]')
-
-        ax[0, 2].scatter(time, velocity_tangential)
-        ax[0, 2].set_title('Tangential Velocity [m/s]')
-        plt.xlabel('time [s]')
-
-        ax[0, 3].scatter(time, velocity_total)
-        ax[0, 3].set_title('Total Velocity [m/s]')
-        plt.xlabel('time [s]')
-
-        ax[0, 4].scatter(time, horizontal)
-        ax[0, 4].set_title('Horizontal arc distance traveled [km]')
-        plt.xlabel('time [s]')
-
-        ax[1, 0].scatter(time, acceleration_total)
-        ax[1, 0].set_title('Acceleration [g]')
-        plt.xlabel('time [s]')
-
-        ax[1, 2].scatter(time, thrust)
-        ax[1, 2].set_title('Thrust [N]')
-        plt.xlabel('time [s]')
-
-        ax[1, 3].scatter(time, drag)
-        ax[1, 3].set_title('Drag [N]')
-        plt.xlabel('time [s]')
-
-        ax[1, 4].scatter(time, theta)
-        ax[1, 4].set_title('Theta [deg]')
-        plt.xlabel('time [s]')
-
+        columns = ['time', 'altitude', 'horizontal', 'rad_vel',
+                   'tan_vel', 'total_vel', 'rad_acc', 'tan_acc',
+                   'tot_acc', 'cent_acc', 'mass', 'thrust',
+                   'drag', 'theta']
+        log_df = pd.DataFrame(self.log, columns=columns)
+        time = log_df.time
+        height, width = 2, 7
+        fig, ax = plt.subplots(height, width)
+        i, j = 0, 0
+        for col in log_df:
+            ax[i, j].scatter(time, log_df[col])
+            ax[i, j].set_title(col)
+            plt.xlabel('time [s]')
+            if j == (width - 1):
+                j = 0
+                i += 1
+            else:
+                j += 1
         mng = plt.get_current_fig_manager()
         mng.resize(*mng.window.maxsize())
+        plt.show()
 
 
 class Vehicle(object):
@@ -159,6 +126,7 @@ class Acceleration(object):
         self.radial = acceleration_radial
         self.tangential = acceleration_tangential
         self.total = (self.radial ** 2 + self.tangential ** 2) ** 0.5
+        self.centripetal_acc = 0
 
 
 class Air(object):
@@ -228,9 +196,9 @@ def calc_acceleration(self):
     rocket_acceleration = (self.thrust - self.drag) / self.vehicle.mass.total
     radial_eng_acc = rocket_acceleration * math.cos(self.position.angle)
     tangential_eng_acc = rocket_acceleration * math.sin(self.position.angle)
-    centripetal_acc = self.velocity.tangential ** 2 / (self.position.altitude + Earth.radius)
+    self.centripetal_acc = self.velocity.tangential ** 2 / (self.position.altitude + Earth.radius)
     # Radial acceleration from thrust - Earth's gravitational acceleration + centripetal acceleration
-    self.acceleration.radial = radial_eng_acc - self.g + centripetal_acc
+    self.acceleration.radial = radial_eng_acc - self.g + self.centripetal_acc
     self.acceleration.tangential = tangential_eng_acc
     self.acceleration.total = (self.acceleration.tangential ** 2 +
                                self.acceleration.radial ** 2) ** 0.5
@@ -255,6 +223,16 @@ def calc_position(self):
     self.position.theta += math.atan(self.velocity.tangential * self.step) / (self.position.altitude + Earth.radius)
 
 
+def calc_log(self):
+    self.log.append([self.time, self.position.altitude,
+                     self.position.horizontal, self.velocity.radial,
+                     self.velocity.tangential, self.velocity.total,
+                     self.acceleration.radial, self.acceleration.tangential,
+                     self.acceleration.total, self.acceleration.centripetal_acc,
+                     self.vehicle.mass.total, self.thrust, self.drag,
+                     self.position.theta])
+
+
 Earth = planets.Earth()    # Planet reference information
 
 # Reference dictionaries
@@ -264,7 +242,6 @@ material = {'Al_6061_T6': [240e6, 2700]}   # { name: [yield strength (Pa), densi
 
 # NOTES
 # Looking into the burn time. I believe the residual fuel shortens the burn time by a few seconds.
-# Time step of 0.0625 seconds yielded the best results when the model was compared to the rocket equation
 # Improve model's direction of flight angle vs rocket's angle of attack. At this moment, they are the same. In reality, this is not the case
 # Need to improve rocket's mass prediction based on tank pressure
 # Conservation of energy is violated
