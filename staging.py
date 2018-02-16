@@ -6,8 +6,6 @@ import planets
 
 Earth = planets.Earth()    # Planet reference information
 
-# Stages' information
-# Lists are [stage 1, stage 2, stage3] information
 stage_propellant_mass_fraction = 0.80
 mass_percentages = [0.75, 0.20, 0.05]    # First stage is 75% of total rocket mass, etc.
 total_rocket_mass = 1000

@@ -32,7 +32,7 @@ class Rocket(object):
             calc_log(self)
             self.time += self.step
 
-    def plotter(self):
+    def graphs(self):
         columns = ['time', 'altitude', 'horizontal', 'rad_vel',
                    'tan_vel', 'total_vel', 'rad_acc', 'tan_acc',
                    'tot_acc', 'cent_acc', 'mass', 'thrust',
@@ -53,7 +53,51 @@ class Rocket(object):
                 j += 1
         mng = plt.get_current_fig_manager()
         mng.resize(*mng.window.maxsize())
-        plt.show()
+
+
+class Setup(object):
+    def __init__(self, altitude=0, angle=0, velocity_radial=0,
+                 velocity_tangential=0, acceleration_radial=0,
+                 acceleration_tangential=0, exhaust_velocity=3240,
+                 mass=0, mass_fraction=0, mixture_ratio=0, burn_time=0,
+                 tank_material=None, fuel=None, oxidizer=None,
+                 safety_factor=1, tank_pressure=0, drag_coefficent=0):
+        self.position = {
+            'altitude': altitude,
+            'angle': angle
+        }
+        self.velocity = {
+            'velocity_radial': velocity_radial,
+            'velocity_tangential': velocity_tangential,
+            'altitude': altitude
+        }
+        self.acceleration = {
+            'acceleration_radial': acceleration_radial,
+            'acceleration_tangential': acceleration_tangential
+        }
+        self.engine = {
+            'exhaust_velocity': exhaust_velocity
+        }
+        self.vehicle = {
+            'mass': mass,
+            'propellant_mass_fraction': mass_fraction,
+            'mixture_ratio': mixture_ratio,
+            'burn_time': burn_time,
+            'tank_material': tank_material,
+            'fuel': fuel,
+            'oxidizer': oxidizer,
+            'tank_safety_factor': safety_factor,
+            'tank_pressure': tank_pressure,
+            'drag_coefficent': drag_coefficent
+        }
+
+
+def build(setup):
+    return(Rocket(Position(**setup.position),
+                  Velocity(**setup.velocity),
+                  Acceleration(**setup.acceleration),
+                  Engine(**setup.engine),
+                  Vehicle(**setup.vehicle)))
 
 
 class Vehicle(object):
@@ -244,4 +288,4 @@ material = {'Al_6061_T6': [240e6, 2700]}   # { name: [yield strength (Pa), densi
 # Looking into the burn time. I believe the residual fuel shortens the burn time by a few seconds.
 # Improve model's direction of flight angle vs rocket's angle of attack. At this moment, they are the same. In reality, this is not the case
 # Need to improve rocket's mass prediction based on tank pressure
-# Conservation of energy is violated
+# Conservation of energy is violated when gravity and centripetal are close to being equal...possible round-off error
