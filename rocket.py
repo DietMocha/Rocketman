@@ -8,7 +8,7 @@ class Rocket(object):
     ''' Describes a single stage rocket. Use metric units. '''
 
     def __init__(self, position, velocity, acceleration, engine,
-                 vehicle, start=0,):
+                 vehicle, start):
         self.time = start    # Rocket start time
         self.position = position
         self.velocity = velocity
@@ -16,8 +16,7 @@ class Rocket(object):
         self.vehicle = vehicle
         self.engine = engine
         self.air = Air()    # Atmospheric information
-        # Time step of 0.0625 seconds yielded the best results
-        # when the model was compared to the rocket equation
+        # Time step of 0.0625 yielded best results compared to rocket equation
         self.step = 0.0625
         self.log = []    # Stores flight information
 
@@ -32,31 +31,9 @@ class Rocket(object):
             calc_log(self)
             self.time += self.step
 
-    def graphs(self):
-        columns = ['time', 'altitude', 'horizontal', 'rad_vel',
-                   'tan_vel', 'total_vel', 'rad_acc', 'tan_acc',
-                   'tot_acc', 'cent_acc', 'mass', 'thrust',
-                   'drag', 'theta']
-        log_df = pd.DataFrame(self.log, columns=columns)
-        time = log_df.time
-        height, width = 2, 7
-        fig, ax = plt.subplots(height, width)
-        i, j = 0, 0
-        for col in log_df:
-            ax[i, j].scatter(time, log_df[col])
-            ax[i, j].set_title(col)
-            plt.xlabel('time [s]')
-            if j == (width - 1):
-                j = 0
-                i += 1
-            else:
-                j += 1
-        mng = plt.get_current_fig_manager()
-        mng.resize(*mng.window.maxsize())
-
 
 class Setup(object):
-    def __init__(self, altitude=0, angle=0, velocity_radial=0,
+    def __init__(self, altitude=0, horizontal=0, angle=0, velocity_radial=0,
                  velocity_tangential=0, acceleration_radial=0,
                  acceleration_tangential=0, exhaust_velocity=3240,
                  mass=0, mass_fraction=0, mixture_ratio=0, burn_time=0,
@@ -64,7 +41,8 @@ class Setup(object):
                  safety_factor=1, tank_pressure=0, drag_coefficent=0):
         self.position = {
             'altitude': altitude,
-            'angle': angle
+            'angle': angle,
+            'horizontal': horizontal
         }
         self.velocity = {
             'velocity_radial': velocity_radial,
@@ -92,12 +70,38 @@ class Setup(object):
         }
 
 
-def build(setup):
+def build(setup, start_time=0):
     return(Rocket(Position(**setup.position),
                   Velocity(**setup.velocity),
                   Acceleration(**setup.acceleration),
                   Engine(**setup.engine),
-                  Vehicle(**setup.vehicle)))
+                  Vehicle(**setup.vehicle),
+                  start=start_time))
+
+
+class Stage(object):
+    def __init__(self, stage, rocket_mass, propellant_mass_fraction,
+                 mass_percentage, burn_time, angle):
+        self.stage = stage
+        self.mass_fraction = propellant_mass_fraction[stage - 1]
+        self.mass_percentage = mass_percentage[stage - 1]
+        self.burn_time = burn_time[stage - 1]
+        self.angle = angle[stage - 1]
+        self.mass = self.mass_percentage * rocket_mass
+        self.wet_mass = self.mass_fraction * self.mass
+        self.dry_mass = self.mass - self.wet_mass
+
+
+class MultiStage(object):
+    # Designed for three stages
+    def __init__(self, stage1, stage2, stage3):
+        self.stage1 = stage1
+        self.stage2 = stage2
+        self.stage3 = stage3
+        self.sub_mass_fraction = [
+            self.stage1.wet_mass / (self.stage1.mass + self.stage2.mass + self.stage3.mass),
+            self.stage2.wet_mass / (self.stage2.mass + self.stage3.mass),
+            self.stage3.wet_mass / (self.stage3.mass)]
 
 
 class Vehicle(object):
@@ -144,9 +148,9 @@ class Mass(object):
 
 
 class Position(object):
-    def __init__(self, altitude=0, angle=0):
+    def __init__(self, altitude=0, horizontal=0, angle=0):
         self.altitude = altitude    # Initial height above the surface, meters
-        self.horizontal = 0    # Arc distance travelled down range
+        self.horizontal = horizontal    # Arc distance travelled down range
         # Arc angle created between the current position
         # The center of the Earth, and the starting position
         self.theta = 0
@@ -275,6 +279,31 @@ def calc_log(self):
                      self.acceleration.total, self.acceleration.centripetal_acc,
                      self.vehicle.mass.total, self.thrust, self.drag,
                      self.position.theta])
+
+
+def graph(log):
+    log.loc[:, 'altitude'] = log.altitude.apply(lambda x: x / 1000)
+    log.loc[:, 'horizontal'] = log.horizontal.apply(lambda x: x / 1000)
+    log.loc[:, 'rad_acc'] = log.rad_acc.apply(lambda x: x / 9.805)
+    log.loc[:, 'tan_acc'] = log.tan_acc.apply(lambda x: x / 9.805)
+    log.loc[:, 'tot_acc'] = log.tot_acc.apply(lambda x: x / 9.805)
+    log.loc[:, 'cent_acc'] = log.cent_acc.apply(lambda x: x / 9.805)
+    height, width = 2, 7
+    fig, ax = plt.subplots(height, width)
+    i, j = 0, 0
+    for col in log:
+        ax[i, j].scatter(log['time'], log[col])
+        ax[i, j].scatter(log['time'], log[col])
+        ax[i, j].set_title(col)
+        plt.xlabel('time [s]')
+        if j == (width - 1):
+            j = 0
+            i += 1
+        else:
+            j += 1
+    mng = plt.get_current_fig_manager()
+    mng.resize(*mng.window.maxsize())
+    plt.show()
 
 
 Earth = planets.Earth()    # Planet reference information
